@@ -1,0 +1,16 @@
+# TLC model checker artifacts (build output, regeneratable)
+specs/states/
+
+# TLC auto-generated trace files (regenerated on each run)
+specs/*_TTrace_*.tla
+specs/*_TTrace_*.bin
+
+# Java class files
+*.class
+
+# Editor/IDE
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
