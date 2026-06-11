@@ -107,7 +107,7 @@
   - ✅ `CopyObjectHasNoRoute` — Server-side copy is not implemented
 
 **⚠️ BUGS FOUND:**
-- **CRITICAL:** PUT /{bucket}/{key} route (Server.hs:102-108) uses inline code without auth check
+- **CRITICAL:** PUT /{bucket}/{key} route (Server.hs:102-108) uses inline code without auth check — **FIXED** (commit d906a68: routes through handlePutObject with evaluate() check)
 - **MEDIUM:** handleCopyObject defined but never wired (CopyObject not implemented)
 
 ---
@@ -140,11 +140,11 @@
 | Content-addressable storage | — | `ContentAddressableStorage.tla` (7 invariants) |
 | Bucket lifecycle | — | `BucketOps.tla` (2 invariants) |
 | SigV4 timestamp replay protection | — | `SigV4Replay.tla` (3 invariants) |
+| ref_count dead code | HIGH | Column removed from SQLite schema (commit `d906a68` in haskell-dojo). No longer dead code. |
 
 ### Open ⬜
 | Gap | Severity | Detail |
 |-----|----------|--------|
-| ref_count dead code | HIGH | SQLite schema has `ref_count`; impl uses UPSERT (always 1). CAS spec covers both approaches. Haskell fix: remove column or implement proper ref-counting. |
 | Presigned URLs | MEDIUM | HMAC time-based validation; deferred (requires real-time model) |
 | List pagination | LOW | Prefix/delimiter/maxKeys unmodeled; bounded results OK |
 | SigV4 crypto verification | LOW | Not state-machine-verifiable; deferred to property-based testing |
@@ -160,6 +160,7 @@
 - **Impact:** Any authenticated user can upload objects regardless of IAM policy permissions.
 - **Root cause:** `handlePutObject` in Object/Handler.hs:24-31 has the correct auth check (`evaluate(userPolicies, S3PutObject, objectARN bucket key)`) but is NEVER called from any route. The inline code in Server.hs replaced it but omitted the auth check.
 - **Detected by:** `EndpointCoverage.tla` — `UnauthorizedRoutesExist` and `HandlePutObjectIsOrphaned` assertions.
+- **Status: FIXED** — Server.hs now routes PUT /{bucket}/{key} through `handlePutObject`, ensuring `evaluate()` is called for policy enforcement (commit `d906a68` in haskell-dojo).
 
 ### BUG #2 (MEDIUM): handleCopyObject Never Wired
 - **Location:** `src/S3OSS/Object/Handler.hs`, lines 81-97
