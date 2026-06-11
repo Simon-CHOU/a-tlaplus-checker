@@ -171,10 +171,12 @@
 - **Issue:** `handleCopyObject` is defined with correct dual-auth logic (S3GetObject on source + S3PutObject on destination) but no route in Server.hs dispatches to it.
 - **Impact:** Server-side CopyObject is not implemented. The function is dead code.
 - **Detected by:** `EndpointCoverage.tla` — `HandleCopyObjectIsOrphaned` and `CopyObjectHasNoRoute` assertions.
+- **Status: FIXED** — Server.hs now detects `x-amz-copy-source` header and dispatches to `handleCopyObject` (commit `de2420e` in haskell-dojo).
 
 ### BUG #3 (LOW): Dead Test Modules
 - **Location:** `test/Spec.hs`
 - **Issue:** Three test modules (`SigV4Spec`, `Bucket/HandlerSpec`, `Multipart/ManagerSpec`) are compiled but never executed because they are not imported in the test runner.
+- **Status: FIXED** — All 7 test modules now imported in `test/Spec.hs` (commit `b2e7db5` in haskell-dojo).
 
 ---
 

@@ -211,6 +211,7 @@ a-tlaplus-checker/
     Object/Handler.hs, Storage.hs
     List/Handler.hs
     Multipart/Handler.hs, Manager.hs
+    Presigned.hs
     Server.hs, Store.hs, Types.hs, Config.hs, XML.hs
 ```
 
@@ -223,4 +224,3 @@ a-tlaplus-checker/
 | Presigned URLs | MEDIUM | Deferred (requires time-based model) |
 | List pagination | LOW | Unmodeled (prefix/delimiter/maxKeys) |
 | SigV4 crypto | LOW | Deferred to property-based testing |
-| Dead test modules | LOW | 3 test files never imported in test/Spec.hs |
