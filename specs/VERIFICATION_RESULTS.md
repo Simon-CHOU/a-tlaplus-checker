@@ -88,9 +88,9 @@
 
 ---
 
-### 7. Endpoint Coverage & Auth Wiring (`EndpointCoverage.tla`) — NEW
+### 7. Endpoint Coverage & Auth Wiring (`EndpointCoverage.tla`) — UPDATED 2026-06-12
 **Model:** Handler definitions vs. Server.hs route wiring contract
-**Model size:** Static analysis — 14 handler defs × 13 route entries
+**Model size:** Static analysis — 14 handler defs × 14 route entries
 **Results:**
 - 2 states, 1 distinct state (constant-level ASSUME spec)
 - 11 ASSUME assertions verified at parse time:
@@ -98,17 +98,17 @@
   - ✅ `ActionCountCorrect` — 14 S3 actions
   - ✅ `AllActionsHaveHandlers` — Every action has a handler defined
   - ✅ `AllHandlersHaveAuth` — Every handler calls evaluate()
-  - ✅ `RouteCountCorrect` — 13 route entries (12 wired + 1 inline)
-  - ✅ `UnauthorizedRoutesExist` — Exactly 1 route lacks auth check
-  - ✅ `OrphanedHandlerCountCorrect` — Exactly 2 handlers are defined but never called
-  - ✅ `HandlePutObjectIsOrphaned` — handlePutObject is orphaned (inline code replaces it)
-  - ✅ `HandleCopyObjectIsOrphaned` — handleCopyObject has no route
-  - ✅ `AllCalledHandlersDefined` — All called handlers exist
-  - ✅ `CopyObjectHasNoRoute` — Server-side copy is not implemented
+  - ✅ `RouteCountCorrect` — 14 route entries (all wired through handlers)
+  - ✅ `AllRoutesAuthorized` — Zero routes lack auth check (all inlineAuth=TRUE)
+  - ✅ `NoOrphanedHandlers` — Zero handlers are defined but never called
+  - ✅ `AllCalledHandlersDefined` — All called handlers exist in HandlerDefs
+  - ✅ `CopyObjectIsRouted` — CopyObject is reachable (x-amz-copy-source dispatch)
+  - ✅ `PutObjectIsRouted` — PutObject routes through handlePutObject with evaluate()
 
-**⚠️ BUGS FOUND:**
-- **CRITICAL:** PUT /{bucket}/{key} route (Server.hs:102-108) uses inline code without auth check — **FIXED** (commit d906a68: routes through handlePutObject with evaluate() check)
-- **MEDIUM:** handleCopyObject defined but never wired (CopyObject not implemented)
+**⚠️ ALL BUGS FIXED (2026-06-12):**
+- ~~CRITICAL: PUT /{bucket}/{key} inline code without auth~~ → FIXED (d906a68)
+- ~~MEDIUM: handleCopyObject never wired~~ → FIXED (de2420e)
+- ~~MEDIUM: handlePutObject orphaned~~ → FIXED (d906a68)
 
 ---
 
@@ -141,6 +141,10 @@
 | Bucket lifecycle | — | `BucketOps.tla` (2 invariants) |
 | SigV4 timestamp replay protection | — | `SigV4Replay.tla` (3 invariants) |
 | ref_count dead code | HIGH | Column removed from SQLite schema (commit `d906a68` in haskell-dojo). No longer dead code. |
+| Dead test modules | LOW | All 7 test modules now imported in test/Spec.hs (commit `b2e7db5`). SigV4Spec, Bucket/HandlerSpec, Multipart/ManagerSpec are now executed. |
+| PutObject auth bypass | CRITICAL | Server.hs now routes through handlePutObject which calls evaluate(S3PutObject) (commit `d906a68`). |
+| CopyObject not routed | MEDIUM | Server.hs now detects x-amz-copy-source header and dispatches to handleCopyObject (commit `de2420e`). |
+| EndpointCoverage staleness | CRITICAL | Spec updated (2026-06-12): routes 13→14, orphaned handlers 2→0, unauthorized routes 1→0. |
 
 ### Open ⬜
 | Gap | Severity | Detail |
@@ -148,7 +152,6 @@
 | Presigned URLs | MEDIUM | HMAC time-based validation; deferred (requires real-time model) |
 | List pagination | LOW | Prefix/delimiter/maxKeys unmodeled; bounded results OK |
 | SigV4 crypto verification | LOW | Not state-machine-verifiable; deferred to property-based testing |
-| Dead test modules | LOW | SigV4Spec, Bucket/HandlerSpec, Multipart/ManagerSpec never imported in test/Spec.hs |
 
 ---
 

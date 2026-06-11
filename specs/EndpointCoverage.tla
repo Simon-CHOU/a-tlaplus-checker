@@ -76,14 +76,15 @@ RouteTable == {
     [route |-> "PUT /{bucket}/{key}?uploadId", handler |-> "handleUploadPart",              inlineAuth |-> TRUE],
     [route |-> "POST /{bucket}/{key}?uploadId",handler |-> "handleCompleteMultipartUpload", inlineAuth |-> TRUE],
     [route |-> "DELETE /{bucket}/{key}?uploadId",handler |-> "handleAbortMultipartUpload",   inlineAuth |-> TRUE],
-    [route |-> "PUT /{bucket}/{key}",          handler |-> "INLINE-PutObject",             inlineAuth |-> FALSE]
+    [route |-> "PUT /{bucket}/{key}",          handler |-> "handlePutObject",               inlineAuth |-> TRUE],
+    [route |-> "PUT /{bucket}/{key} (copy)",   handler |-> "handleCopyObject",              inlineAuth |-> TRUE]
 }
 
 (***************************
  * DERIVED SETS             *
  ***************************)
 
-CalledHandlers == { r.handler : r \in RouteTable } \ {"INLINE-PutObject"}
+CalledHandlers == { r.handler : r \in RouteTable }
 DefinedHandlerNames == { h.name : h \in HandlerDefs }
 OrphanedHandlers == DefinedHandlerNames \ CalledHandlers
 NonAuthRoutes == { r \in RouteTable : r.inlineAuth = FALSE }
@@ -104,22 +105,21 @@ ASSUME AllActionsHaveHandlers ==
 ASSUME AllHandlersHaveAuth ==
     \A h \in HandlerDefs: h.hasAuth
 
-ASSUME RouteCountCorrect == Cardinality(RouteTable) = 13
+ASSUME RouteCountCorrect == Cardinality(RouteTable) = 14
 
-ASSUME UnauthorizedRoutesExist == Cardinality(NonAuthRoutes) = 1
+ASSUME AllRoutesAuthorized == Cardinality(NonAuthRoutes) = 0
 
-ASSUME OrphanedHandlerCountCorrect == Cardinality(OrphanedHandlers) = 2
-
-ASSUME HandlePutObjectIsOrphaned == "handlePutObject" \in OrphanedHandlers
-
-ASSUME HandleCopyObjectIsOrphaned == "handleCopyObject" \in OrphanedHandlers
+ASSUME NoOrphanedHandlers == Cardinality(OrphanedHandlers) = 0
 
 ASSUME AllCalledHandlersDefined ==
     \A r \in RouteTable:
-        r.handler \in (DefinedHandlerNames \cup {"INLINE-PutObject"})
+        r.handler \in DefinedHandlerNames
 
-ASSUME CopyObjectHasNoRoute ==
-    ~(\E r \in RouteTable: r.handler = "handleCopyObject")
+ASSUME CopyObjectIsRouted ==
+    \E r \in RouteTable: r.handler = "handleCopyObject"
+
+ASSUME PutObjectIsRouted ==
+    \E r \in RouteTable: r.handler = "handlePutObject"
 
 (***************************
  * MINIMAL SPEC FOR TLC     *

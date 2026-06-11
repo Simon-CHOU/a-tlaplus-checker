@@ -10,10 +10,14 @@
  *   rename to <sha256[0:2]>/<sha256>      *
  *   (CAS with automatic dedup)           *
  * - putObjectMeta: INSERT ... ON CONFLICT *
- *   DO UPDATE (overwrite semantics)       *
- * - SQLite schema has ref_count column    *
- *   but current code uses overwrite not   *
- *   explicit ref-count increment          *
+ *   DO UPDATE (overwrite semantics).      *
+ *   ref_count column removed (d906a68);   *
+ *   dedup via filesystem (same SHA-256 →  *
+ *   same file path). The TLA+ model uses  *
+ *   explicit ref-counting as an idealized *
+ *   specification — the implementation    *
+ *   achieves equivalent safety through    *
+ *   filesystem-level content addressing.  *
  * - deleteObjectMeta: DELETE by bucket_id *
  *   + key, then unlink file from disk    *
  * - CopyObject: copies metadata (same     *
