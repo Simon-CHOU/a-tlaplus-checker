@@ -1,7 +1,8 @@
 # TLA+ Formal Verification Results for s3-oss
 
-**Date:** 2026-06-11
+**Date:** 2026-06-12
 **Tool:** TLC2 Version 2026.05.26
+**Release:** v0.1.0 GA
 
 ---
 
