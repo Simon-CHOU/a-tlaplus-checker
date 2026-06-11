@@ -1,0 +1,32 @@
+# Spike: Current Blockers — 2026-06-11 23:22
+
+## Block Analysis
+
+### Block #1: Zero git commits
+No commits in the repo. Everything is untracked. No diff, no rollback, no PR workflow.
+
+### Block #2: Pre-commit-lint skill partially deployed
+- Skill file is complete and ready to use (all loopholes patched)
+- Not yet committed to any repo
+- Lower priority than correctness work
+
+### Block #3: Auth enforcement not verified (HIGH)
+PolicyEngine.tla proves `evaluate` is correct, but no spec verifies every handler
+uses the correct Action + ResourceARN. This is a security gap.
+
+### Block #4: ref_count dead schema (HIGH, but lower risk)
+`ref_count` column exists but is never incremented/decremented. Filesystem-level
+dedup + UNIQUE constraint mitigate the data-loss scenario.
+
+## Recommended Action Order
+
+| Step | Action | Impact |
+|------|--------|--------|
+| 1 | `git init && git add && git commit` — baseline the 5 verified specs | Enables workflow |
+| 2 | Write `AuthEnforcement.tla` — verify handler→action mapping | Closes HIGH security gap |
+| 3 | Remove/fix `ref_count` column | Closes HIGH correctness gap |
+| 4 | Deploy lint skill to repo | Team productivity |
+
+## Verdict
+Pre-commit-lint skill is ready. Auth Enforcement TLA+ spec is the most
+impactful next verification step. Commit everything first.

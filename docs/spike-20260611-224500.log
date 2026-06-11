@@ -1,0 +1,79 @@
+# Spike: TLA+ Verification Blockers
+**Timestamp:** 2026-06-11 22:45
+**Scope:** Identify and resolve blockers preventing completion of TLA+ formal verification
+
+---
+
+## Current Status
+
+### Completed ✅
+| # | Spec | States | Result |
+|---|------|--------|--------|
+| 1 | PolicyEngine.tla | 43,745 | All 6 invariants pass |
+| 2 | MultipartUpload.tla | 169 | All 4 invariants pass |
+| 3 | ContentAddressableStorage.tla | 9 | All 7 invariants pass |
+| 4 | BucketOps.tla | 25 | All 2 invariants pass |
+
+### In Progress 🔄
+| # | Spec | Blocker |
+|---|------|---------|
+| 5 | SigV4Replay.tla | State space explosion (original model: 183M+ states) |
+
+---
+
+## Blocker #1: SigV4 Model State Space Explosion
+
+### Problem
+Original SigV4 model used explicit `Tick` action for clock advancement. With MaxServerTime=4, Signatures=2, the model generated **183 million states** without completing.
+
+Root cause: The `Tick` action interleaves with request processing, creating factorial branching. Each time step allows all possible request combinations.
+
+### Solution Applied
+Removed explicit clock from the model. Redesigned as request-sequence model:
+- No `Tick` action — time is carried by request timestamps
+- Each step processes one request: Accept, RejectExpired, or RejectReplay
+- Window validation uses `lastReqTime` (timestamp of last accepted request) as reference
+- State variables: `seenSigs`, `lastReqTime`, `accepted`, `rejected`
+
+Expected state space: ~200 states (vs 183M)
+
+### Verification
+Model running with: Signatures=2, MaxWindow=2, MaxTime=5
+
+---
+
+## Blocker #2: MultipartUpload Model Alignment (MINOR)
+
+### Gap
+- TLA+ model: 3 states (initiated, completed, aborted)
+- Implementation: 4 states (UploadInitiated, UploadInProgress, UploadCompleted, UploadAborted)
+- Implementation `abortMultipartUpload` deletes the upload immediately (no "aborted" state persistence)
+
+### Assessment
+The model simplification is valid:
+- "initiated" covers both `UploadInitiated` and `UploadInProgress` — the distinction is relevant only for part-count enforcement
+- Immediate deletion on abort is a valid implementation choice that still satisfies the model's safety properties
+- The model ensures: no parts survive abort/complete, no state conflicts, GC correctness
+
+### Recommendation
+Low priority — current model is sufficient. Consider adding `UploadInProgress` state only if we want to verify part-count > 0 for CompleteMultipartUpload.
+
+---
+
+## Coverage Gaps (Not Blockers)
+
+| Component | Design § | Reason Not Verified |
+|-----------|----------|---------------------|
+| SigV4 Crypto | §2.4 | Cryptographic operations not state-machine; better verified with property-based testing (QuickCheck) |
+| Presigned URLs | §2.5 | Requires real-time clock model; deferred |
+| TLS Transport | §2.6 | Infrastructure concern; verified by warp-tls library tests |
+| XML Serialization | §3.1 | Data format; better verified with round-trip property tests |
+
+---
+
+## Conclusions
+
+1. **SigV4 replay protection** is the last remaining TLA+ spec — simplified model should complete quickly
+2. **MultipartUpload alignment** is a minor documentation note, not a correctness concern
+3. **Remaining components** (SigV4 crypto, presigned URLs, TLS, XML) are better verified through other methods (QuickCheck, integration tests)
+4. **Recommendation**: After SigV4 spec passes, declare TLA+ verification phase complete. Move to property-based testing for crypto/parsing components.

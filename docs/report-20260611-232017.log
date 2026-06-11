@@ -1,0 +1,67 @@
+# E2E UAT Report — 2026-06-11 23:20
+
+## 1. Project Status
+
+### TLA+ Formal Verification (5/5 specs pass)
+
+| # | Spec | States | Invariants | Result |
+|---|------|--------|------------|--------|
+| 1 | PolicyEngine.tla | 43,745 | 6 | ✅ |
+| 2 | MultipartUpload.tla | 169 | 4 | ✅ |
+| 3 | ContentAddressableStorage.tla | 9 | 7 | ✅ |
+| 4 | BucketOps.tla | 25 | 2 | ✅ |
+| 5 | SigV4Replay.tla | 22 | 3 | ✅ |
+
+### Haskell Implementation (23 source files)
+
+| Layer | Files | Key Modules |
+|-------|-------|-------------|
+| HTTP Server | 1 | Server.hs (full S3 REST routing) |
+| Auth | 2 | SigV4.hs, Policy.hs |
+| Bucket | 1 | Bucket/Handler.hs |
+| Object | 2 | Object/Handler.hs, Object/Storage.hs |
+| Multipart | 2 | Multipart/Handler.hs, Multipart/Manager.hs |
+| List | 1 | List/Handler.hs |
+| Store | 1 | Store.hs (SQLite) |
+| Config/Types/XML/Prelude | 4 | Infrastructure |
+
+## 2. Code Line Count (CLOC)
+
+| Category | Lines | Files |
+|----------|-------|-------|
+| TLA+ specs (.tla) | 692 | 5 |
+| TLA+ configs (.cfg) | 78 | 5 |
+| Haskell source | 1,894 | 15 |
+| Haskell config/cabal | 112 | 1 |
+
+## 3. Gaps from Goal
+
+### Completed ✅
+- Policy evaluation formal verification
+- Multipart upload state machine
+- Content-addressable storage
+- Bucket lifecycle
+- SigV4 replay protection
+
+### NEW Gaps Found (spike 23:20)
+- **HIGH:** Auth enforcement matrix not verified (handlers may use wrong Action/ARN)
+- **HIGH:** ref_count in schema but implementation uses UPSERT (dead code)
+- MEDIUM: CopyObject dual-auth not modeled
+- MEDIUM: Presigned URLs deferred
+
+## 4. Session Pitfalls (cumulative)
+
+1. TLA+ `(*)` in block comment → premature comment close
+2. Non-short-circuit `/\ ` → CHOOSE on empty set
+3. `{}` vs `[x \in {} |-> e]` → function initialization
+4. Double primed-variable assignment → dead actions
+5. TLC state space explosion → 183M+ states
+6. TLC CFG function constant syntax → moved to spec operators
+7. Pre-commit-lint: compiler warnings not covered by hlint-only check
+8. Pre-commit-lint: "linter not available" rationalization loophole
+
+## 5. Health Check
+
+- All 5 specs re-runnable: `java -cp tla2tools.jar tlc2.TLC -config X.cfg X.tla`
+- TLC v2026.05.26, Java 21
+- No stale processes

@@ -1,0 +1,67 @@
+# E2E UAT Report — 2026-06-11 23:23
+
+## 1. Project Status
+
+### Goal: TLA+ Formal Verification of a-s3-like-oss
+
+| # | Spec | States | Invariants | Result |
+|---|------|--------|------------|--------|
+| 1 | PolicyEngine.tla | 43,745 | 6 | ✅ PASS |
+| 2 | MultipartUpload.tla | 169 | 4 | ✅ PASS |
+| 3 | ContentAddressableStorage.tla | 9 | 7 | ✅ PASS |
+| 4 | BucketOps.tla | 25 | 2 | ✅ PASS |
+| 5 | SigV4Replay.tla | 22 | 3 | ✅ PASS |
+
+**Verification: 5/5 specs, 22/22 invariants pass, 0 violations**
+
+### Git: 0 commits (untracked: docs/, specs/, tla2tools.jar)
+
+## 2. Code Line Count (CLOC)
+
+| Category | Lines |
+|----------|-------|
+| PolicyEngine.tla | 145 |
+| MultipartUpload.tla | 147 |
+| ContentAddressableStorage.tla | 208 |
+| BucketOps.tla | 85 |
+| SigV4Replay.tla | 107 |
+| **TLA+ total** | **692** |
+| Haskell src (16 files) | 1,722 |
+
+## 3. Gaps from Goal
+
+### Closed ✅
+- Policy engine formal verification
+- Multipart state machine + GC
+- Content-addressable storage (dedup, ref-count, atomic writes)
+- Bucket lifecycle (create/delete constraints)
+- SigV4 timestamp replay protection
+
+### Open ⬜
+| Gap | Severity | Detail |
+|-----|----------|--------|
+| Auth enforcement matrix | HIGH | No spec verifies handler→Action→ResourceARN mapping |
+| ref_count dead code | HIGH | Schema has ref_count; impl uses UPSERT (always 1) |
+| Presigned URLs | MEDIUM | HMAC time-based; deferred |
+| CopyObject dual-auth | MEDIUM | Requires GetObject(src) + PutObject(dst) |
+| List pagination | LOW | Prefix/delimiter/maxKeys unmodeled |
+| Git baseline | LOW | 0 commits; specs untracked |
+| Pre-commit-lint deploy | LOW | Skill written, not deployed |
+
+## 4. Session Pitfalls (cumulative 8)
+
+1. **TLA+ `(*)` in block comment** — premature close, fixed with `\*` line comments
+2. **Non-short-circuit `/\ `** — CHOOSE on empty set, fixed with IF-THEN-ELSE
+3. **`{}` not a function** — DOMAIN error, fixed with `[x \in {} |-> e]`
+4. **Double primed-variable assignment** — dead actions, fixed with LET-IN single assignment
+5. **TLC state space explosion** — 183M+ states, fixed with step-bounded model
+6. **TLC CFG function constants** — parser rejects `[k\|->v]` syntax, fixed with spec operators
+7. **Lint skill: compiler warnings gap** — only hlint, missing cabal build; patched §1b
+8. **Lint skill: "not installed" loophole** — agent skipped lint; patched with mandatory install rule
+
+## 5. Health
+
+- TLC v2026.05.26, Java 21
+- All specs re-runnable via cfg files
+- No orphaned processes
+- 3 spikes + 3 reports in docs/

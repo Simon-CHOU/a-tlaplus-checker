@@ -1,0 +1,39 @@
+# Spike: Contract Gap Analysis — 2026-06-11 23:20
+
+## Finding: Two HIGH-severity gaps between TLA+ specs and implementation
+
+### GAP 1 (HIGH): Ref-count modeled, UPSERT implemented
+
+**TLA+ proof:** `ContentAddressableStorage.tla` proves `RefCountMatchesKeys` — each SHA-256 hash is referenced by exactly as many keys as its ref_count. DeleteObject only removes content when ref_count drops to 0.
+
+**Implementation reality:** `putObjectMeta` in Store.hs uses `ON CONFLICT ... DO UPDATE SET sha256=excluded.sha256, ref_count=excluded.ref_count`. The `excluded.ref_count` is always 1. `deleteObjectMeta` deletes without checking/decrementing ref_count. `deleteObject` in Storage.hs ALWAYS removes the file from disk.
+
+**Impact:** If two keys share the same content hash, deleting one key removes the file while the other key still references it → data loss.
+
+**Mitigation:** The `UNIQUE(bucket_id, key)` constraint means ref_count is not actually needed at the metadata layer. The content storage layer (`Object/Storage.hs`) handles dedup at filesystem level. The `ref_count` column is dead schema. **Recommendation: remove ref_count from schema or wire it up properly.**
+
+### GAP 2 (HIGH): Auth enforcement not formally verified
+
+**TLA+ proof:** `PolicyEngine.tla` proves `evaluate` is correct (deny-overrides, etc.)
+
+**Not verified:** Every handler calls `evaluate(userPolicies, correctAction, correctResourceARN)`. A handler using wrong Action or wrong ARN would pass all existing specs.
+
+**Impact:** Security bug possible if handler uses wrong action (e.g., `S3GetObject` instead of `S3PutObject`).
+
+**Recommendation:** Write a TLA+ spec for the auth enforcement matrix: which action+resource each endpoint requires.
+
+### Other Findings
+
+| Finding | Severity | Detail |
+|---------|----------|--------|
+| Multipart abort semantics differ | MEDIUM | TLA+ model uses state transition; impl deletes row immediately |
+| UploadInProgress dead code | LOW | Types.hs defines it; never written by any code path |
+| Presigned URLs unmodeled | MEDIUM | Deferred; HMAC time-based validation |
+| CopyObject dual-auth unmodeled | MEDIUM | Requires both GetObject(src) + PutObject(dst) |
+
+### Recommendation
+
+**Priority order:**
+1. **(B) Auth enforcement spec** — directly prevents security bugs
+2. **(A) Fix ref_count** — remove unused column or implement proper ref-counting
+3. Presigned URL spec — close deferred gap

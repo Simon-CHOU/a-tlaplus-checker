@@ -1,0 +1,94 @@
+# E2E UAT Report — 2026-06-11 23:08
+
+## 1. Project Status
+
+### Target: TLA+ Formal Verification of a-s3-like-oss
+
+| Component | Spec File | States | Invariants | Status |
+|-----------|-----------|--------|------------|--------|
+| IAM Policy Engine | PolicyEngine.tla | 43,745 | 6 | ✅ PASS |
+| Multipart Upload | MultipartUpload.tla | 169 | 4 | ✅ PASS |
+| CAS Storage | ContentAddressableStorage.tla | 9 | 7 | ✅ PASS |
+| Bucket Ops | BucketOps.tla | 25 | 2 | ✅ PASS |
+| SigV4 Replay | SigV4Replay.tla | 22 | 3 | ✅ PASS |
+
+**Verification complete: 5/5 specs pass (22 invariants total, 0 violations)**
+
+## 2. Code Line Count (CLOC)
+
+| Category | Lines | Files |
+|----------|-------|-------|
+| TLA+ specs (.tla) | 692 | 5 |
+| TLA+ configs (.cfg) | 78 | 5 |
+| Haskell impl (src+app) | 1,894 | 23 |
+| Design docs | ~120 | 2 |
+
+**Total effective TLA+ code: 692 lines**
+**Total effective Haskell code: 1,894 lines**
+
+## 3. Gaps from Goal
+
+### Completed ✅
+- [x] IAM Policy evaluation formal verification
+- [x] Multipart upload state machine verification
+- [x] Content-addressable storage verification
+- [x] Bucket lifecycle verification
+- [x] SigV4 timestamp replay protection verification
+
+### Remaining Gaps ⬜
+- [ ] Pre-commit-lint skill: REFACTOR phase not yet verified (loophole test rejected by user)
+- [ ] Pre-commit-lint skill: DEPLOY phase pending
+- [ ] SigV4 crypto signature verification (deferred — not state-machine)
+- [ ] Presigned URL lifecycle (deferred — time-based model)
+- [ ] ListObjects pagination (not modeled)
+
+## 4. Session Pitfalls
+
+### Pitfall 1: TLA+ Block Comment Syntax
+- **Symptom:** `(*)` inside `(*...*)` block comment closes the comment prematurely
+- **Root cause:** TLA+ uses `(*` and `*)` as block comment delimiters; `(*)` contains `*)` which closes
+- **Impact:** Parse errors on PolicyEngine.tla
+- **Fix:** Used `\*` line comments instead
+
+### Pitfall 2: TLA+ Non-Short-Circuit Evaluation
+- **Symptom:** `CHOOSE` failures on empty sets when `/\ ` doesn't short-circuit
+- **Root cause:** TLA+ `/\ ` evaluates both sides; `KeySha(dstKey)` called on key not in domain
+- **Impact:** Runtime errors in ContentAddressableStorage model
+- **Fix:** Used `IF-THEN-ELSE` instead of `/\ ` for guarded lookups
+
+### Pitfall 3: TLA+ Function vs Set Initialization
+- **Symptom:** `DOMAIN {}` error. Empty set `{}` not recognized as function
+- **Root cause:** TLA+ needs `[x \in {} |-> expr]` to create empty function
+- **Impact:** Cardinality/domain errors on Init state
+- **Fix:** Used `[x \in {} |-> "c1"]` for empty function initialization
+
+### Pitfall 4: TLA+ Primed Variable Double Assignment
+- **Symptom:** Actions with `x' = A /\ x' = B` where A ≠ B silently deadlocking
+- **Root cause:** In TLA+, `x' = A /\ x' = B` requires A = B (it's a constraint, not assignment)
+- **Impact:** Broken actions that can never fire (PutOverwrite, Copy)
+- **Fix:** Computed final state in LET block, single assignment
+
+### Pitfall 5: TLC State Space Explosion
+- **Symptom:** SigV4 model generated 183M+ states without completing
+- **Root cause:** Explicit `Tick` clock action interleaved with all request combinations
+- **Impact:** Unbounded model checking (killed after 183M states)
+- **Fix:** Removed explicit clock; added `step` counter with bound of 3
+
+### Pitfall 6: TLC CFG Constant Definitions
+- **Symptom:** Could not define function constants in .cfg files
+- **Root cause:** TLC cfg parser doesn't support `[k |-> v]` record syntax or `@@` merge
+- **Impact:** Multiple failed attempts to define HashFn as constant
+- **Fix:** Moved HashFn from CONSTANT to spec-level operator definition
+
+### Pitfall 7: Pre-commit-lint Skill Loopholes
+- **Symptom:** Agent committed with compiler warnings, claiming "hlint not available"
+- **Root cause:** Skill only covered lint tools, not compiler warnings; no enforcement of "linter must be installed"
+- **Impact:** False sense of verification
+- **Fix:** Added §1b (build/compiler warnings), made linter mandatory, added rationalization entries
+
+## 5. System Health
+
+- TLC version: 2026.05.26
+- Java: OpenJDK 21
+- All 5 specs re-runnable from cfg files
+- No stale lock files or orphaned processes
